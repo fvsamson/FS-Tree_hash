@@ -7,7 +7,7 @@ if [ $# = 0 ]
 then
 fi
 
-hash_cmdln="sha256sum -b "  # The default, if no hash algorithm is set by option "-a" or "--alg(orithm)"
+hash_cmdln='sha256sum -b '  # The default, if no hash algorithm is set by option "-a" or "--alg(orithm)"
 hash_text=SHA2-256
 hash_broken=no
 
@@ -23,31 +23,33 @@ case "$1" in
   # Its default is SHA2-256, which is the only valid hash algorithm according to BSI TR-03183-2.
   case "$1" in
   sha224|sha-224|sha2-224|SHA224|SHA-224|SHA2-224)
-    hash-alg=sha224
+    hash_cmdln='sha224sum -b '
     shift
     ;;
   sha256|sha-256|sha2-256|SHA256|SHA-256|SHA2-256)
-    hash-alg=sha256
+    hash_cmdln='sha256sum -b '
     shift
     ;;
   sha384|sha-384|sha2-384|SHA384|SHA-384|SHA2-384)
-    hash-alg=sha384
+    hash_cmdln='sha384sum -b '
     shift
     ;;
   sha512|sha-512|sha2-512|SHA512|SHA-512|SHA2-512)
-    hash-alg=sha512
+    hash_cmdln='sha512sum -b '
     shift
     ;;
   blake2|b2|blake-2|BLAKE2|B2|BLAKE-2|)
-    hash-alg=b2
+    hash_cmdln='b2sum -b '
     shift
     ;;
   sha1|sha-1|SHA1|SHA-1)
     hash_broken=yes
+    hash_cmdln='sha1sum -b '
     
     ;;
   md5|MD5)
     hash_broken=yes
+    hash_cmdln='md5sum -b '
     
     ;;
   *)
