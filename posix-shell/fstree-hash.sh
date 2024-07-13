@@ -1,12 +1,14 @@
 #!/bin/sh
 set -u  # Error on expanding unset parameters (e.g. variables); may careully consider -e (exit on errors);
         # -f (noglob) would limit functionality, -C (noclobber) is superfluous
+export POSIXLY_CORRECT=1  # Enhances portability (at the expense of special functionality which is not wanted here)
 
 if [ $# = 0 ]
 then
 fi
 
-hash-alg=sha256  # The default, if no hash algorithm is set by oprion "-a" or "--alg(orithm)"
+hash_cmdln="sha256sum -b "  # The default, if no hash algorithm is set by option "-a" or "--alg(orithm)"
+hash_text=SHA2-256
 
 while [ $# -gt 0 ]
 do
@@ -17,8 +19,8 @@ then exit 1
 fi
 
 case "$1" in
--a|--alg*)
-  shift
+-a*|--alg*)
+  hash_param="$2"
   # Second option parameter specifies a hash algorithm.
   # Its default is SHA2-256, which is the only valid hash algorithm according to BSI TR-03183-2.
   case "$1" in
