@@ -139,11 +139,14 @@ do
     sha512?256|sha-512?256|sha2-512?256|SHA512?256|SHA-512?256|SHA2-512?256)
       index=8
       ;;
+    sm3|SM3)
+      index=9
+      ;;
     b2s|B2s|blake2s|BLAKE2s|Blake2s|b2s256|B2s256|blake2s256|BLAKE2s256|Blake2s256)
       index=10
       ;;
     b2|b2b|B2|B2b|blake2|blake2b|BLAKE2|BLAKE2b|Blake2|Blake2b|b2b512|B2b512|blake2b512|BLAKE2b512|Blake2b512)
-      index=10
+      index=11
       ;;
     esac
     *)
