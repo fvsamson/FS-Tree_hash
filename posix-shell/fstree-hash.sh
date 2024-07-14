@@ -3,14 +3,29 @@ set -uf  # Error on expanding unset parameters (e.g. variables) by "-u" and do n
          # may carefully consider -e (exit on errors); -C (noclobber) is superfluous
 export POSIXLY_CORRECT=1  # Enhances portability (at the expense of special functionality which is not wanted here)
 
-# List of supported hash algorithms, identifiers must correspond to the digset commands of "openssl list --digest-commands"
-# (respectively those shared the option values of "openssl dgst -list").
+# List of supported hash algorithms, identifiers must correspond to a subset of those digest commands from
+# "openssl list --digest-commands" which shared the option values of "openssl dgst -list".
 # List positions are fixed (because used as an index) and initially roughly set corresponding to their date of release and
 # hash length; consequently new algorithms must be appended to the extant list.
 hash_list="md5 sha1 sha224 sha256 sha384 sha512 sha512-224 sha512-256 sm3 blake2s256 blake2b512 shake128 shake256 sha3-224 sha3-256 sha3-384 sha3-512"
 # Index:   1   2    3      4      5      6      7          8          9   10         11         12       13       14       15       16       17
 # openssl list --digest-commands  | tr '\n' ' ' | tr -s ' '
 # openssl dgst -list | cut -s -d '-' -f 2- | sed 's/ -//g' | tr '\n' ' ' | tr -s ' '
+
+xsum_list="md5sum -b,sha1sum -b,sha224sum -b,sha256sum -b,sha384sum -b,sha512sum -b,no,no,no,no,no,no,no,no,no,no,no"
+# Index:   1         2          3            4            5            6            7  8  9  10 11 12 13 14 15 16 17
+
+shasum_list="no,shasum -b -a 1,shasum -b -a 224,shasum -b -a 256,shasum -b -a 384,shasum -b -a 512,shasum -b -a 512224,shasum -b -a 512256,no,no,no,no,no,no,no,no,no"
+# Index:     1  2              3                4                5                6                7                   8                   9  10 11 12 13 14 15 16 17
+
+tag_list="MD5 SHA1 SHA224 SHA256 SHA384 SHA512 SHA512/224 SHA512/256 SM3 BLAKE2s256 BLAKE2b512 SHAKE128 SHAKE256 SHA3-224 SHA3-256 SHA3-384 SHA3-512"
+# Index:  1   2    3      4      5      6      7          8          9   10         11         12       13       14       15       16       17
+
+txt_list="MD5 SHA-1 SHA-224 SHA-256 SHA-384 SHA-512 SHA-512/224 SHA-512/256 SM3 BLAKE2s256 BLAKE2b512 SHAKE128/128 SHAKE256/256 SHA3-224 SHA3-256 SHA3-384 SHA3-512"
+# Index:  1   2     3       4       5       6       7           8           9   10         11         12           13           14       15       16       17
+
+status_list="broken broken ok ok ok ok ok ok ok ok ok ok ok ok ok ok ok"
+# Index:     1      2      3  4  5  6  7  8  9  10 11 12 13 14 15 16 17
 
 hash_cmdln=sha256sum  # The default, if no hash algorithm is set by option "-a" or "--alg(orithm)"
 hash_cmd=shaXsum  # I.e. from GNU-coreutils, see https://github.com/coreutils/coreutils/blob/master/src/digest.c
@@ -33,10 +48,11 @@ input_stdin=no
 # see e.g. http://www.mrx.net/c/openmodes.html , https://unix.stackexchange.com/questions/127959/md5sum-command-binary-and-text-mode/127961#127961
 # , https://www.quora.com/In-C-programming-what-happens-if-we-open-files-in-binary-mode-with-rb-option-but-the-files-were-not-binary
 # or https://learn.microsoft.com/en-us/cpp/c-runtime-library/unicode-stream-i-o-in-text-and-binary-modes?view=msvc-170
-# I.e. text files might be transformed while reading them in text mode into a UNIX-like format; thus on Unix systems text mode is a noop
-# and hence equivalent to binary mode.
-# In case of "universal mode" solely a CR/LF to LF conversion is performed when reading text files.
-# Because fstree-hash's primary purpose is hashing SCM file-trees, binary mode is the default mode to hash them "as is".
+# I.e. text files might be transformed while reading them in text mode into a UNIX-like format; thus on Unix systems text
+# mode is a noop and hence equivalent to binary mode.
+# In case of shasum's "universal mode" solely a CR/LF to LF conversion is performed when reading text files.
+# Because fstree-hash's primary purpose is hashing SCM file-trees and the hashing command is fed by a pipeline, binary mode
+# is the only mode used (in order to hash "as is", i.e. without any conversions).
 
 if [ $# = 0 ]
 then input_stdin=yes
