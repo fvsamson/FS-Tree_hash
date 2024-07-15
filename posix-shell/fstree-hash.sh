@@ -1,7 +1,7 @@
 #!/bin/sh
 set -uf  # Error on expanding unset parameters (e.g. variables) by "-u" and do not expand paths (noglob) by "-f";
          # may carefully consider -e (exit on errors); -C (noclobber) is superfluous
-export POSIXLY_CORRECT=1  # Enhances portability (at the expense of special functionality which is not wanted here)
+export POSIXLY_CORRECT=1  # Enhances portability of some GNU utilities (at the expense of special functionality not wanted here)
 
 # List of supported hash algorithms, identifiers must correspond to a subset of those digest commands from
 # "openssl list --digest-commands" which shared the option values of "openssl dgst -list".
@@ -24,7 +24,7 @@ tag_list="MD5 SHA1 SHA224 SHA256 SHA384 SHA512 SHA512/224 SHA512/256 SM3 BLAKE2s
 txt_list="MD5 SHA-1 SHA-224 SHA-256 SHA-384 SHA-512 SHA-512/224 SHA-512/256 SM3 BLAKE2s256 BLAKE2b512 SHAKE128/128 SHAKE256/256 SHA3-224 SHA3-256 SHA3-384 SHA3-512"
 # Index:  1   2     3       4       5       6       7           8           9   10         11         12           13           14       15       16       17
 
-status_list="broken broken ok ok ok ok ok ok ok ok ok ok ok ok ok ok ok"
+status_list="broken broken ok ok ok ok ok ok ok ok ok ok ok ok ok ok ok"  # Valid values are "ok", "weak" and "broken".
 # Index:     1      2      3  4  5  6  7  8  9  10 11 12 13 14 15 16 17
 
 cmd_list="openssl xsum shasum"  # Preferred order of commands to use.
@@ -33,7 +33,7 @@ cmd_list="openssl xsum shasum"  # Preferred order of commands to use.
 
 # Default values
 index=4  # Default is SHA-256, if no hash algorithm is set by option "-a" or "--alg(orithm)".
-fstree_root=''  # An absolute or relative path to a directory, e.g. ".".
+fstree_root=''  # An absolute or relative path to a directory, e.g. ".", or from STDin.
 verbose=no
 xargs_size=2000000  # Minimum value is 4096, see "xargs --show-limits".
 postamble=no
@@ -52,7 +52,7 @@ input_stdin=no
 # mode is a noop and hence equivalent to binary mode.
 # In case of shasum's "universal mode" solely a CR/LF to LF conversion is performed when reading text files.
 # Because fstree-hash's primary purpose is hashing SCM file-trees and the hashing command is fed by a pipeline, binary mode
-# is the only mode used (in order to hash "as is", i.e. without any conversions).
+# is the only mode used (in order to hash "as is", i.e. without any conversions).  Furthermore, OpenSSL only supports binary mode.
 
 if [ $# = 0 ]
 then input_stdin=yes
@@ -113,7 +113,7 @@ do
     fi
     shift
     # Second option parameter specifies a hash algorithm.
-    # Its default is SHA2-256, which is the only valid hash algorithm according to BSI TR-03183-2.
+    # Its default is SHA-256, which is the only valid hash algorithm according to BSI TR-03183-2.
     case "$hash_param" in
     md5|MD5)
       index=1
@@ -148,28 +148,36 @@ do
     b2|b2b|B2|B2b|blake2|blake2b|BLAKE2|BLAKE2b|Blake2|Blake2b|b2b512|B2b512|blake2b512|BLAKE2b512|Blake2b512)
       index=11
       ;;
-    esac
     *)
-      if [ $# = 1 ]  # Last positional parameter
+      echo "Error: $hash_param is not a valid hash algorithm identifier!" 2>
+      exit 3
+    esac
+  -?|--*)
+    echo "Error: Parameter $1 is not a valid option!" 2>
+    exit 3
+    ;;    
+  *)  # First non-option encountered
+    # number_non-opts=$#
+    if [ $# = 1 ]  # Last positional parameter
+    then
+      if [ "$1" = "-" ]  # Explicitly read from STDin
       then
-        if [ "$1" = "-" ]  # Explicitly read from STDin
-        then
-          input_stdin=yes
-          shift
-        elif [ -d "$1" ]  # Is a directory?
-        then
-          fstree_root="$1"
-          shift
-        else 
-          echo "Error: Last parameter $1 is no valid option or directory path!" 2>
-          exit 3
-        fi
-      else
-        echo "Error: Parameter $1 is no valid option!" 2>
+        input_stdin=yes
+        shift
+      elif [ -d "$1" ]  # Is a directory?
+      then
+        fstree_root="$1"
+        shift
+      else 
+        echo "Error: Last parameter $1 is neither a path to a directory nor \"-\" to explicitly read from STDin!" 2>
         exit 3
       fi
-      ;;
-    esac
+    else
+      echo "Error: Parameter $1 does not adhere to the short option format \"-?\" or the long option format \"--*\"!" 2>
+      exit 3
+    fi
+    ;;
+  esac
 done
 
 if [ -z "$fstree_root" ]
@@ -177,6 +185,12 @@ then input_stdin=yes
 fi
 
 -----------------------------------------------------------------
+
+find -L . -type f -exec printf '%s\0' '{}' \;
+is the POSIX equivalent to the GNU-find command line
+find -P . -xtype f -print0
+
+find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed 's/ /\\\\ /g' | xargs -E '' -I {} cat {}  # Issue: No globbing!
 
   echo "Warning: Mind that $hash_text is cryptographically broken and hence dangerous and discouraged." 2>
 
