@@ -197,8 +197,8 @@ find -P . -xtype f -print0
               MS-DOS filesystems  (GNU find)
 
 # Globbing must be on!  By set +f or set +o noglob
-find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed -e 's/ /\\\\ /g' -e 's/\*/\\\\*/g' | xargs -E '' -I {} sh -c 'cat {}'
-find -L . -maxdepth 1 -type f -name "ab*" -exec ls -1q '{}' + | sort -u | sed -e 's/ /\\\\ /g' -e 's/\*/\\\\*/g' | xargs -E '' -I {} sh -c 'cat {}'
+find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed 's/\([^[:alnum:]+-./?_~]\)/\\\\\1/g' | xargs -E '' -I {} sh -c 'cat {}'
+find -L . -maxdepth 1 -type f -name "ab*" -exec ls -1q '{}' + | sort -u | sed 's/\([^[:alnum:]+-./?_~]\)/\\\\\1/g' | xargs -E '' -I {} sh -c 'cat {}'
 
   echo "Warning: Mind that $hash_text is cryptographically broken and hence dangerous and discouraged." 2>
 
