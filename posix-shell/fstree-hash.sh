@@ -190,7 +190,15 @@ find -L . -type f -exec printf '%s\0' '{}' \;
 is the POSIX equivalent to the GNU-find command line
 find -P . -xtype f -print0
 
-find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed 's/ /\\\\ /g' | xargs -E '' -I {} /bin/sh -c 'cat {}'  # Globbing must be on!  By set +f or set +o noglob
+-xdev  Don't descend directories on other filesystems.  (Posix)
+
+-noleaf       Do not optimize by assuming that directories contain 2 fewer subdirectories than their hard link count.  This  op‐
+              tion is needed when searching filesystems that do not follow the Unix directory-link convention, such as CD-ROM or
+              MS-DOS filesystems  (GNU find)
+
+# Globbing must be on!  By set +f or set +o noglob
+find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed -e 's/ /\\\\ /g' -e 's/\*/\\\\*/g' | xargs -E '' -I {} sh -c 'cat {}'
+find -L . -maxdepth 1 -type f -name "ab*" -exec ls -1q '{}' + | sort -u | sed -e 's/ /\\\\ /g' -e 's/\*/\\\\*/g' | xargs -E '' -I {} sh -c 'cat {}'
 
   echo "Warning: Mind that $hash_text is cryptographically broken and hence dangerous and discouraged." 2>
 
@@ -199,9 +207,9 @@ if ! [ -e "$1" ]
 then exit 1
 fi
 
-if ! set -o posix
+if ! set -o posix  (bash etc.)
 
-if ! set -o pipefail
+if ! set -o pipefail  (bash etc.)
 then
   printf '%s\n' "Warning: Technically unable to abort, if one of the following, preparatory steps for the upgrade proper fails." | tee -a "$logfile" >&2
   printf '\n' | tee -a "$logfile" >&2
