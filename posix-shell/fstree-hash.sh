@@ -190,7 +190,7 @@ find -L . -type f -exec printf '%s\0' '{}' \;
 is the POSIX equivalent to the GNU-find command line
 find -P . -xtype f -print0
 
-find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed 's/ /\\\\ /g' | xargs -E '' -I {} cat {}  # Issue: No globbing!
+find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed 's/ /\\\\ /g' | xargs -E '' -I {} /bin/sh -c 'cat {}'  # Globbing must be on!  By set +f or set +o noglob
 
   echo "Warning: Mind that $hash_text is cryptographically broken and hence dangerous and discouraged." 2>
 
@@ -198,6 +198,8 @@ find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed 's
 if ! [ -e "$1" ]
 then exit 1
 fi
+
+if ! set -o posix
 
 if ! set -o pipefail
 then
