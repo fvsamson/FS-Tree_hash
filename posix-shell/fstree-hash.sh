@@ -200,6 +200,7 @@ find -P . -xtype f -print0
 find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed 's/\([^[:alnum:]+-./?_~]\)/\\\\\1/g' | xargs -E '' -I {} sh -c 'cat {}'
 find -L . -maxdepth 1 -type f -name "ab*" -exec ls -1q '{}' + | sort -u | sed 's/\([^[:alnum:]+-./?_~]\)/\\\\\1/g' | xargs -E '' -I {} sh -c 'cat {}'
 find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed -e ':a;N;$!ba;s/\n/\\n/g' -e 's/\0/\n/g' | sort | sed 's/\([^[:alnum:]+-./?_~]\)/\\\\\1/g' | xargs -E '' -I {} sh -c 'cat {}'
+find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n 'l' | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/\([^[:alnum:]+-./?_~]\)/\\\\\1/g' | xargs -E '' -I {} sh -c 'cat {}'
 
   echo "Warning: Mind that $hash_text is cryptographically broken and hence dangerous and discouraged." 2>
 
