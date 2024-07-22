@@ -224,7 +224,7 @@ ls -1q ab* | cat  # !!!
 
 Rest is tedious work: Let it be, because a better concept is known.
 
-BTW, sed does handle NULL characters using this syntax:
+BTW, most sed implemetations do handle NULL characters using this syntax, but it seems to be not covered by POSIX.1-2017:
 echo -e "ab\ncd\nef" | tr '\n' '\0' | sed 's/\x0/\n/g'
 
 
