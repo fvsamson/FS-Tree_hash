@@ -64,24 +64,39 @@ input_stdin=no
 # Another idea, using two hex digits at a time (better use 8, or 16 on 64-bit CPUs):
 # https://www.codeproject.com/Tips/470308/XOR-Hex-Strings-in-Linux-Shell-Script
 xor() {
+  if [ ${#1} != ${#2} ]
+  then
+    echo "Error: ...!" >&2
+    exit 1
+  fi
+  #if ! printf '%s' "$1" | grep -qx '[[:xdigit:]]\{32,\}' && printf '%s' "$2" | grep -qx '[[:xdigit:]]\{32,\}'
+  #then
+  #  echo "Error: ...!" >&2
+  #  exit 2
+  #fi
+  w_size=8  # CPU word size in hex chars (each encoding 4 bits)
+  unname_m="$(uname -m)"
+  if [ "${uname_m##*64}" != "$uname_m" ]
+  then w_size=16
+  elif [ "${uname_m##*128}" != "$uname_m" ]
+  then w_size=32
+  fi
   {
     echo "$1" |  # start pipeline with first parameter
-      fold -w 8 |  # Use 8 hex chars (each encoding 4 bits) per line = 32 bits; may use 16 solely on 64-bit CPUs
-      sed 's/^/0x/' |  # prepend '0x' to lines to tell shell they are hex numbers
-      nl -w 2 -d '' # number the lines to match corresponding ones later; 2 allows for 99*32=3168-bit hashes, default is 6
+      fold -w $w_size |  # Use $w_size hex chars (each encoding 4 bits) per line
+      cat -n  # number the lines to match corresponding ones later
     echo "$2" |  # do the same with the second argument
-      fold -w 8 |
-      sed 's/^/0x/' |
-      nl -w 2 -d ''  # BTW, `cat -n` is equivalent to `nl -d ''` with its other options at default values
+      fold -w $w_size |
+      cat -n  # `cat -n` is equivalent to `nl -d ''` with its other options at default values
   } |  # coming into this pipe the lines are: 1,..,n,1,..,n
   sort -n |  # sort numerically so lines are: 1,1,..,n,n
-  cut -s -f 2 |  # cut to keep only second field (i.e. hex blocks), ditching the line numbers
+  sed 's/^ *[[:digit:]][[:digit:]]*\t/0x/' |  # ditch line number and tab, replace by 0x to tell shell these are hex numbers
   paste - - |  # paste to join every second line separated by a tab (creating half as many two-field lines)
   while read -r a b  # read lines, assign 'a' and 'b' to the two fields
   do
     printf "%#0${#a}x" "$(( a ^ b ))"  # do XOR and left-pad the result
   done |
-  sed 's/0x//g' |  # strip the leading '0x' (outside the loop for "performance")
+  sed 's/^0x//g' |  # strip the leading '0x' (outside the loop for "performance")
   paste -s -d '\0' -  # join all block back into to one hex string; '\0' does *not* denote the NULL char
 }
 
