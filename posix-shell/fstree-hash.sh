@@ -85,7 +85,8 @@ xor() {
   paste -s -d '\0' -  # join all block back into to one hex string; '\0' does *not* denote the NULL char
 }
 
-
+# find -L . -maxdepth 1 -type f -name "ab*" -exec openssl md5 -r '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}' |  sed -e 's/[[:xdigit:]]\{8\}/& /g' -e 's/$/y \\:\\:/g' | tr ' ' '\n' | nl -w 2 | sort -n | grep -Fvx ''
+# find -L . -maxdepth 1 -type f -name "ab*" -exec openssl md5 -r '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}' |  sed -e 's/[[:xdigit:]]\{8\}/& /g' -e 's/$/\\:\\:/g' | tr ' ' '\n' | nl -w 2 | sort -n | grep -Fvx ''
 
 if [ $# = 0 ]  # As the only non-option, the last parameter may be one or more valid paths as the root of the tree(s) to be hashed, "-" for reading these paths from STDin or not existing to achieve the same.
 then input_stdin=yes
