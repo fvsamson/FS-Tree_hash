@@ -34,8 +34,9 @@ cmd_list="openssl xsum shasum"  # Preferred order of commands to use.
 # Default values
 index=4  # Default is SHA-256, if no hash algorithm is set by option "-a" or "--alg(orithm)".
 fstree_root=''  # An absolute or relative path to a directory, e.g. ".", or from STDin.
+xdev=no  # Do NOT cross over to other devices.
 verbose=no
-xargs_size=2000000  # Minimum value is 4096, see "xargs --show-limits".
+xargs_size=2000000  # Minimum value is 4096, see "xargs --show-limits" and https://www.in-ulm.de/~mascheck/various/argmax/
 postamble=no
 tagged=no
 input_nterm=no
@@ -54,16 +55,20 @@ input_stdin=no
 # Because fstree-hash's primary purpose is hashing SCM file-trees and the hashing command is fed by a pipeline, binary mode
 # is the only mode used (in order to hash "as is", i.e. without any conversions).  Furthermore, OpenSSL only supports binary mode.
 
-if [ $# = 0 ]
+if [ $# = 0 ]  # As the only non-option, the last parameter may be one or more valid paths as the root of the tree(s) to be hashed, "-" for reading these paths from STDin or not existing to achieve the same.
 then input_stdin=yes
 fi
 
 # ToDo: Start using POSIX getopts
-while [ $# -gt 0 ]
+while [ $# -gt 0 ]  # Among other thigs, this avoids the ${1+"$@"} issue, see https://www.in-ulm.de/~mascheck/various/bourne_args/
 do
   case "$1" in
   -z|--zero)  # NULL-terminate output, instead of newline
     output_nterm=yes
+    shift
+    ;;
+  -x|--xdev)  # Cross over to other devices: Disables find option -xdev, which is applied by default
+    xdev=yes
     shift
     ;;
   -v|--verbose)
@@ -158,7 +163,7 @@ do
     exit 3
     ;;    
   *)  # First non-option encountered
-    # number_non-opts=$#
+    # number_non-opts=$# ; break  # Jump out of loop to process the non-option arguments
     if [ $# = 1 ]  # Last positional parameter
     then
       if [ "$1" = "-" ]  # Explicitly read from STDin
@@ -222,10 +227,6 @@ Rest is tedious work: Let it be, because a better concept is known.
 
   echo "Warning: Mind that $hash_text is cryptographically broken and hence dangerous and discouraged." 2>
 
-# The only non-option, hence last parameter must be a valid path as the root of the tree to be hashed
-if ! [ -e "$1" ]
-then exit 1
-fi
 
 if ! set -o posix  (bash etc.)
 
