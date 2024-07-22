@@ -58,6 +58,7 @@ if [ $# = 0 ]
 then input_stdin=yes
 fi
 
+# ToDo: Start using POSIX getopts
 while [ $# -gt 0 ]
 do
   case "$1" in
@@ -196,11 +197,28 @@ find -P . -xtype f -print0
               tion is needed when searching filesystems that do not follow the Unix directory-link convention, such as CD-ROM or
               MS-DOS filesystems  (GNU find)
 
-# Globbing must be on!  By set +f or set +o noglob
-find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed 's/\([^[:alnum:]+-./?_~]\)/\\\\\1/g' | xargs -E '' -I {} sh -c 'cat {}'
-find -L . -maxdepth 1 -type f -name "ab*" -exec ls -1q '{}' + | sort -u | sed 's/\([^[:alnum:]+-./?_~]\)/\\\\\1/g' | xargs -E '' -I {} sh -c 'cat {}'
-find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed -e ':a;N;$!ba;s/\n/\\n/g' -e 's/\0/\n/g' | sort | sed 's/\([^[:alnum:]+-./?_~]\)/\\\\\1/g' | xargs -E '' -I {} sh -c 'cat {}'
-find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n 'l' | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/\([^[:alnum:]+-./?_~]\)/\\\\\1/g' | xargs -E '' -I {} sh -c 'cat {}'
+export LC_COLLATE=POSIX; find -P . -xtype f -print0 | sort -z | xargs -x -0 cat | sha256sum -b | cut -f 1 -d ' '
+
+Trying with POSIX only options:
+# Globbing must be on for the ls based variants by set +f or set +o noglob
+find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed -e 's/[^[:alnum:]+-./?_~]/\\\\&/g' -e "s/[\"$']/\\\\&/g" | xargs -E '' -I {} sh -c "cat {}"  # Works!
+find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed -e "s/[\"']/\\\\&/g" -e "s/?/\\'?\\'/g" | xargs -E '' -I {} cat {}  # Fail to let ? be quoted
+find -L . -maxdepth 1 -type f -name "ab*" -exec ls -1q '{}' + | sort -u | sed -e 's/[^[:alnum:]+-./?_~]/\\\\&/g' -e "s/[\"$']/\\\\&/g" | xargs -E '' -I {} sh -c "cat {}"  # Works, supposedly faster
+
+The "proper" way I fail to let the formatting characters become interpreted, but exactly that works with the ls based variants above?!?
+find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n l | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/[^[:alnum:]+-./?_~]/\\&/g' -e 's/["$]/\\\\&/g' -e 's/%/%%/g' | xargs -E '' -I {} sh -c "cat \"$(printf {})\""
+find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n l | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/[^[:alnum:]+-./?_~]/\\&/g' -e 's/%/%%/g' | xargs -E '' -I {} cat "$(printf {})"
+
+Next, definitely better try.  Note that is it should be resaerched if the term `-e "s/[[:cntrl:]]/''&''/g"` shall better be omitted.
+find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | tr '\0\n' '\n\0' | sort | tr '\0\n' '\n\0' | sed -e "s/'/'\\\''/g" | sed -e ':a;N;$!ba;s/\n/'\''$'\''\\n'\'''\''/g' | tr '\0\n' '\n\0' | sed -e "s/^/'/g" -e "s/$/'/g" -e 's/\a/'\''$'\''\\a'\'''\''/g' -e 's/\f/'\''$'\''\\f'\'''\''/g' -e 's/\r/'\''$'\''\\r'\'''\''/g' -e 's/\t/'\''$'\''\\t'\'''\''/g' -e 's/\v/'\''$'\''\\v'\'''\''/g' -e "s/[[:cntrl:]]/''&''/g"  # Output like GNU "ls -1q" @tty without xargs
+find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | tr '\0\n' '\n\0' | sort | tr '\0\n' '\n\0' | sed -e "s/'/'\\\''/g" | sed -e ':a;N;$!ba;s/\n/'\''$'\''\\n'\'''\''/g' | tr '\0\n' '\n\0' | sed -e "s/^/'/g" -e "s/$/'/g" -e 's/\a/'\''$'\''\\a'\'''\''/g' -e 's/\f/'\''$'\''\\f'\'''\''/g' -e 's/\r/'\''$'\''\\r'\'''\''/g' -e 's/\t/'\''$'\''\\t'\'''\''/g' -e 's/\v/'\''$'\''\\v'\'''\''/g' -e "s/[[:cntrl:]]/''&''/g" | sed -e 's/[^[:alnum:]+-./?_~]/\\&/g' | xargs -E '' -I {} printf '%s\n' {}  # Output like GNU "ls -1q" @tty with xargs
+find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | tr '\0\n' '\n\0' | sort | tr '\0\n' '\n\0' | sed -e "s/'/'\\\''/g" | sed -e ':a;N;$!ba;s/\n/'\''$'\''\\n'\'''\''/g' | tr '\0\n' '\n\0' | sed -e "s/^/'/g" -e "s/$/'/g" -e 's/\a/'\''$'\''\\a'\'''\''/g' -e 's/\f/'\''$'\''\\f'\'''\''/g' -e 's/\r/'\''$'\''\\r'\'''\''/g' -e 's/\t/'\''$'\''\\t'\'''\''/g' -e 's/\v/'\''$'\''\\v'\'''\''/g' -e "s/[[:cntrl:]]/''&''/g" | sed -e 's/[^[:alnum:]+-./?_~]/\\\\\\&/g' | xargs -E '' -I {} sh -c 'printf "%s\n" {}'  # Output like GNU "ls -1q" @tty with xargs in subshell
+
+BUT overkill, because GNU "ls -1q" !@tty:
+ls -1q ab* | cat  # !!!
+
+Rest is tedious work: Let it be, because a better concept is known.
+
 
   echo "Warning: Mind that $hash_text is cryptographically broken and hence dangerous and discouraged." 2>
 
