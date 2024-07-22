@@ -7,9 +7,9 @@ export POSIXLY_CORRECT=1  # Enhances portability of some GNU utilities (at the e
 # "openssl list --digest-commands" which shared the option values of "openssl dgst -list".
 # List positions are fixed (because used as an index) and initially roughly set corresponding to their date of release and
 # hash length; consequently new algorithms must be appended to the extant list.
-openssl_list="md5 sha1 sha224 sha256 sha384 sha512 sha512-224 sha512-256 sm3 blake2s256 blake2b512 shake128 shake256 sha3-224 sha3-256 sha3-384 sha3-512"
-# Index:      1   2    3      4      5      6      7          8          9   10         11         12       13       14       15       16       17
-# openssl list --digest-commands  | tr '\n' ' ' | tr -s ' '
+openssl_list="openssl md5 -r,openssl sha1 -r,openssl sha224 -r,openssl sha256 -r,openssl sha384 -r,openssl sha512 -r,openssl sha512-224 -r,openssl sha512-256 -r,openssl sm3 -r,openssl blake2s256 -r,openssl blake2b512 -r,openssl shake128 -r,openssl shake256 -r,openssl sha3-224 -r,openssl sha3-256 -r,openssl sha3-384 -r,openssl sha3-512"
+# Index:      1              2               3                 4                 5                 6                 7                     8                     9              10                    11                    12                  13                  14                  15                  16                  17
+# openssl list --digest-commands  | tr '\n' ' ' | tr -s ' '  # Using a subset from these, i.e. a subset of the common set of these with those:
 # openssl dgst -list | cut -s -d '-' -f 2- | sed 's/ -//g' | tr '\n' ' ' | tr -s ' '
 
 xsum_list="md5sum -b,sha1sum -b,sha224sum -b,sha256sum -b,sha384sum -b,sha512sum -b,no,no,no,no,no,no,no,no,no,no,no"
@@ -45,6 +45,7 @@ input_stdin=no
 # output_format=hex  # Other values may be "bin"
 # read_mode=binary  # Other values may be "text" and "universal"
 
+# **Binary / text mode**
 # Binary or text mode simply determines if the fopen call to the C-library is performed with the "b" flag for binary or not,
 # see e.g. http://www.mrx.net/c/openmodes.html , https://unix.stackexchange.com/questions/127959/md5sum-command-binary-and-text-mode/127961#127961
 # , https://www.quora.com/In-C-programming-what-happens-if-we-open-files-in-binary-mode-with-rb-option-but-the-files-were-not-binary
@@ -54,6 +55,37 @@ input_stdin=no
 # In case of shasum's "universal mode" solely a CR/LF to LF conversion is performed when reading text files.
 # Because fstree-hash's primary purpose is hashing SCM file-trees and the hashing command is fed by a pipeline, binary mode
 # is the only mode used (in order to hash "as is", i.e. without any conversions).  Furthermore, OpenSSL only supports binary mode.
+
+# Function xor, derived from https://stackoverflow.com/a/55986217 ; elegant because fully pipelined
+# For alternatives using calc, gdb or bc with the logic.bc library from http://phodd.net/gnu-bc/index.html#logic, see:
+# https://unix.stackexchange.com/questions/292344/how-to-calculate-hexadecimal-xor-from-shell
+# Or using Bash arrays written by AWK:
+# https://www.reddit.com/r/linuxquestions/comments/6kaqal/comment/djmp3sk/
+# Another idea, using two hex digits at a time (better use 8, or 16 on 64-bit CPUs):
+# https://www.codeproject.com/Tips/470308/XOR-Hex-Strings-in-Linux-Shell-Script
+xor() {
+  {
+    echo "$1" |  # start pipeline with first parameter
+      fold -w 8 |  # Use 8 hex chars (each encoding 4 bits) per line = 32 bits; may use 16 solely on 64-bit CPUs
+      sed 's/^/0x/' |  # prepend '0x' to lines to tell shell they are hex numbers
+      nl -w 2 -d '' # number the lines to match corresponding ones later; 2 allows for 99*32=3168-bit hashes, default is 6
+    echo "$2" |  # do the same with the second argument
+      fold -w 8 |
+      sed 's/^/0x/' |
+      nl -w 2 -d ''  # BTW, `cat -n` is equivalent to `nl -d ''` with its other options at default values
+  } |  # coming into this pipe the lines are: 1,..,n,1,..,n
+  sort -n |  # sort numerically so lines are: 1,1,..,n,n
+  cut -s -f 2 |  # cut to keep only second field (i.e. hex blocks), ditching the line numbers
+  paste - - |  # paste to join every second line separated by a tab (creating half as many two-field lines)
+  while read -r a b  # read lines, assign 'a' and 'b' to the two fields
+  do
+    printf "%#0${#a}x" "$(( a ^ b ))"  # do XOR and left-pad the result
+  done |
+  sed 's/0x//g' |  # strip the leading '0x' (outside the loop for "performance")
+  paste -s -d '\0' -  # join all block back into to one hex string; '\0' does *not* denote the NULL char
+}
+
+
 
 if [ $# = 0 ]  # As the only non-option, the last parameter may be one or more valid paths as the root of the tree(s) to be hashed, "-" for reading these paths from STDin or not existing to achieve the same.
 then input_stdin=yes
@@ -202,27 +234,9 @@ find -P . -xtype f -print0
               tion is needed when searching filesystems that do not follow the Unix directory-link convention, such as CD-ROM or
               MS-DOS filesystems  (GNU find)
 
-export LC_COLLATE=POSIX; find -P . -xtype f -print0 | sort -z | xargs -x -0 cat | sha256sum -b | cut -f 1 -d ' '
-
-Trying with POSIX only options:
-# Globbing must be on for the ls based variants by set +f or set +o noglob
-find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed -e 's/[^[:alnum:]+-./?_~]/\\\\&/g' -e "s/[\"$']/\\\\&/g" | xargs -E '' -I {} sh -c "cat {}"  # Works!
-find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed -e "s/[\"']/\\\\&/g" -e "s/?/\\'?\\'/g" | xargs -E '' -I {} cat {}  # Fail to let ? be quoted
-find -L . -maxdepth 1 -type f -name "ab*" -exec ls -1q '{}' + | sort -u | sed -e 's/[^[:alnum:]+-./?_~]/\\\\&/g' -e "s/[\"$']/\\\\&/g" | xargs -E '' -I {} sh -c "cat {}"  # Works, supposedly faster
-
-The "proper" way I fail to let the formatting characters become interpreted, but exactly that works with the ls based variants above?!?
-find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n l | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/[^[:alnum:]+-./?_~]/\\&/g' -e 's/["$]/\\\\&/g' -e 's/%/%%/g' | xargs -E '' -I {} sh -c "cat \"$(printf {})\""
-find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n l | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/[^[:alnum:]+-./?_~]/\\&/g' -e 's/%/%%/g' | xargs -E '' -I {} cat "$(printf {})"
-
-Next, definitely better try.  Note that is it should be resaerched if the term `-e "s/[[:cntrl:]]/''&''/g"` shall better be omitted.
-find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | tr '\0\n' '\n\0' | sort | tr '\0\n' '\n\0' | sed -e "s/'/'\\\''/g" | sed -e ':a;N;$!ba;s/\n/'\''$'\''\\n'\'''\''/g' | tr '\0\n' '\n\0' | sed -e "s/^/'/g" -e "s/$/'/g" -e 's/\a/'\''$'\''\\a'\'''\''/g' -e 's/\f/'\''$'\''\\f'\'''\''/g' -e 's/\r/'\''$'\''\\r'\'''\''/g' -e 's/\t/'\''$'\''\\t'\'''\''/g' -e 's/\v/'\''$'\''\\v'\'''\''/g' -e "s/[[:cntrl:]]/''&''/g"  # Output like GNU "ls -1q" @tty without xargs
-find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | tr '\0\n' '\n\0' | sort | tr '\0\n' '\n\0' | sed -e "s/'/'\\\''/g" | sed -e ':a;N;$!ba;s/\n/'\''$'\''\\n'\'''\''/g' | tr '\0\n' '\n\0' | sed -e "s/^/'/g" -e "s/$/'/g" -e 's/\a/'\''$'\''\\a'\'''\''/g' -e 's/\f/'\''$'\''\\f'\'''\''/g' -e 's/\r/'\''$'\''\\r'\'''\''/g' -e 's/\t/'\''$'\''\\t'\'''\''/g' -e 's/\v/'\''$'\''\\v'\'''\''/g' -e "s/[[:cntrl:]]/''&''/g" | sed -e 's/[^[:alnum:]+-./?_~]/\\&/g' | xargs -E '' -I {} printf '%s\n' {}  # Output like GNU "ls -1q" @tty with xargs
-find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | tr '\0\n' '\n\0' | sort | tr '\0\n' '\n\0' | sed -e "s/'/'\\\''/g" | sed -e ':a;N;$!ba;s/\n/'\''$'\''\\n'\'''\''/g' | tr '\0\n' '\n\0' | sed -e "s/^/'/g" -e "s/$/'/g" -e 's/\a/'\''$'\''\\a'\'''\''/g' -e 's/\f/'\''$'\''\\f'\'''\''/g' -e 's/\r/'\''$'\''\\r'\'''\''/g' -e 's/\t/'\''$'\''\\t'\'''\''/g' -e 's/\v/'\''$'\''\\v'\'''\''/g' -e "s/[[:cntrl:]]/''&''/g" | sed -e 's/[^[:alnum:]+-./?_~]/\\\\\\&/g' | xargs -E '' -I {} sh -c 'printf "%s\n" {}'  # Output like GNU "ls -1q" @tty with xargs in subshell
-
-BUT overkill, because GNU "ls -1q" !@tty:
-ls -1q ab* | cat  # !!!
-
-Rest is tedious work: Let it be, because a better concept is known.
+find -L . -maxdepth 1 -type f -name "ab*" -exec shasum -b '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}'
+find -L . -maxdepth 1 -type f -name "ab*" -exec shasum -a 256 -b '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}'
+find -L . -maxdepth 1 -type f -name "ab*" -exec openssl sha256 -r '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}'
 
 
   echo "Warning: Mind that $hash_text is cryptographically broken and hence dangerous and discouraged." 2>
