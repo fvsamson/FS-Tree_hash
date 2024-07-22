@@ -224,9 +224,11 @@ ls -1q ab* | cat  # !!!
 
 Rest is tedious work: Let it be, because a better concept is known.
 
+BTW, sed does handle NULL characters using this syntax:
+echo -e "ab\ncd\nef" | tr '\n' '\0' | sed 's/\x0/\n/g'
+
 
   echo "Warning: Mind that $hash_text is cryptographically broken and hence dangerous and discouraged." 2>
-
 
 if ! set -o posix  (bash etc.)
 
