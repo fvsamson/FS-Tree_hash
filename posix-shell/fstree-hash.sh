@@ -12,8 +12,8 @@ openssl_list="openssl md5 -r,openssl sha1 -r,openssl sha224 -r,openssl sha256 -r
 # openssl list --digest-commands  | tr '\n' ' ' | tr -s ' '  # Using a subset from these, i.e. a subset of the common set of these with those:
 # openssl dgst -list | cut -s -d '-' -f 2- | sed 's/ -//g' | tr '\n' ' ' | tr -s ' '
 
-xsum_list="md5sum -b,sha1sum -b,sha224sum -b,sha256sum -b,sha384sum -b,sha512sum -b,no,no,no,no,no,no,no,no,no,no,no"
-# Index:   1         2          3            4            5            6            7  8  9  10 11 12 13 14 15 16 17
+xsum_list="md5sum -b,sha1sum -b,sha224sum -b,sha256sum -b,sha384sum -b,sha512sum -b,no,no,no,no,b2sum -b,no,no,no,no,no,no"
+# Index:   1         2          3            4            5            6            7  8  9  10 11       12 13 14 15 16 17
 
 shasum_list="no,shasum -b -a 1,shasum -b -a 224,shasum -b -a 256,shasum -b -a 384,shasum -b -a 512,shasum -b -a 512224,shasum -b -a 512256,no,no,no,no,no,no,no,no,no"
 # Index:     1  2              3                4                5                6                7                   8                   9  10 11 12 13 14 15 16 17
