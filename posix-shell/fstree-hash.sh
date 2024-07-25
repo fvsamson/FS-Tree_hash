@@ -250,9 +250,9 @@ find -P . -xtype f -print0
               tion is needed when searching filesystems that do not follow the Unix directory-link convention, such as CD-ROM or
               MS-DOS filesystems  (GNU find)
 
-find -L . -maxdepth 1 -type f -name "ab*" -exec shasum -b '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}'
-find -L . -maxdepth 1 -type f -name "ab*" -exec shasum -a 256 -b '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}'
 find -L . -maxdepth 1 -type f -name "ab*" -exec openssl sha256 -r '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}'
+find -L . -maxdepth 1 -type f -name "ab*" -exec sha256sum -b '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}'
+find -L . -maxdepth 1 -type f -name "ab*" -exec shasum -a 256 -b '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}'
 
 
   echo "Warning: Mind that $hash_text is cryptographically broken and hence dangerous and discouraged." 2>
