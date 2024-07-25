@@ -84,10 +84,10 @@ xor() {
   {
     echo "$1" |  # start pipeline with first parameter
       fold -w $w_size |  # Use $w_size hex chars (each encoding 4 bits) per line
-      cat -n  # number the lines to match corresponding ones later
+      nl -d ''  # number the lines to match corresponding ones later, `pr -tn` is a POSIX alternative
     echo "$2" |  # do the same with the second argument
       fold -w $w_size |
-      cat -n  # `cat -n` is equivalent to `nl -d ''` with its other options at default values
+      nl -d ''  # `cat -n` is equivalent to `nl -d ''` (with its other options at default values), but not POSIX
   } |  # coming into this pipe the lines are: 1,..,n,1,..,n
   sort -n |  # sort numerically so lines are: 1,1,..,n,n
   sed 's/^ *[[:digit:]][[:digit:]]*\t/0x/' |  # ditch line number and tab, replace by 0x to tell shell these are hex numbers
