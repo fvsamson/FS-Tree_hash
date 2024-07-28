@@ -98,6 +98,25 @@ do
       exit 3
     fi
     ;;
+  -r|--version)  # XYZsum style output with "+" for binary mode, "_" for text mode and "u" for "universal mode"
+    ver="${1#-?*=}"
+    if [ "$ver" = "$1" ]
+    then
+      ver="$2"
+      shift
+    fi
+    shift
+    if [ "0$ver" -ne "$ver" ] 2>/dev/null
+    then
+      echo "Error: Version parameter $ver is not a numeric value!"
+      exit 3
+    elif [ $ver -gt 1 ]
+    then
+      echo "Error: Version parameter $ver is larger than 1!"
+      exit 3
+    else version=$ver
+    fi
+    ;;
   -p|--postamble)  # XYZsum style output with "+" for binary mode, "_" for text mode and "u" for "universal mode"
     postamble=yes
     shift
@@ -192,6 +211,12 @@ fi
 
 -----------------------------------------------------------------
 
+*** Version 0 ***
+
+With GNU-Utilities:
+
+export LC_COLLATE=POSIX; find -P . -xtype f -print0 | sort -z | xargs -x -0 cat | sha256sum -b | cut -f 1 -d ' '
+
 find -L . -type f -exec printf '%s\0' '{}' \;
 is the POSIX equivalent to the GNU-find command line
 find -P . -xtype f -print0
@@ -202,7 +227,6 @@ find -P . -xtype f -print0
               tion is needed when searching filesystems that do not follow the Unix directory-link convention, such as CD-ROM or
               MS-DOS filesystems  (GNU find)
 
-export LC_COLLATE=POSIX; find -P . -xtype f -print0 | sort -z | xargs -x -0 cat | sha256sum -b | cut -f 1 -d ' '
 
 Trying with POSIX only options:
 # Globbing must be on for the ls based variants by set +f or set +o noglob
@@ -221,13 +245,28 @@ find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | tr '\0\n
 find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | tr '\0\n' '\n\0' | sort | tr '\0\n' '\n\0' | sed -e "s/'/'\\\''/g" | sed -e ':a;N;$!ba;s/\n/'\''$'\''\\n'\'''\''/g' | tr '\0\n' '\n\0' | sed -e "s/^/'/g" -e "s/$/'/g" -e 's/\a/'\''$'\''\\a'\'''\''/g' -e 's/\f/'\''$'\''\\f'\'''\''/g' -e 's/\r/'\''$'\''\\r'\'''\''/g' -e 's/\t/'\''$'\''\\t'\'''\''/g' -e 's/\v/'\''$'\''\\v'\'''\''/g' -e "s/[[:cntrl:]]/''&''/g" | sed -e 's/[^[:alnum:]+-./?_~]/\\\\\\&/g' | xargs -E '' -I {} sh -c 'printf "%s\n" {}'  # Output like GNU "ls -1q" @tty with xargs in subshell
 
 BUT overkill, because GNU "ls -1q" !@tty:
-ls -1q ab* | cat  # !!!
+ls -1q ab* | cat  # !!! Vastly different output than if STDout is a TTY !!!
 
 Rest is tedious work: Let it be, because a better concept is known.
 
 BTW, most sed implemetations do handle NULL characters using this syntax, but it seems to be not covered by POSIX.1-2017:
 echo -e "ab\ncd\nef" | tr '\n' '\0' | sed 's/\x0/\n/g'
 
+-----------------------------------------------------------------
+
+*** Version 1 ***
+
+With GNU-Utilities:
+
+find -L . -maxdepth 1 -type f -name "ab*" -print0 | sort -z | xargs -0 md5sum | sed 's/^\\\?\([[:xdigit:]]\+\) .*$/\1/' | xxd -r -p | md5sum | cut -s -f 1 -d ' '
+find -L . -maxdepth 1 -type f -name "ab*" -print0 | sort -z | xargs -0 md5sum | sed -r 's/^\\?([[:xdigit:]]+) .*$/\1/' | xxd -r -p | md5sum | cut -s -f 1 -d ' '
+
+Checks:
+find -L . -maxdepth 1 -type f -name "ab*" -print0 | sort -z | xargs -0 md5sum | sed -r 's/^\\?([[:xdigit:]]+) .*$/\1/'
+find -L . -maxdepth 1 -type f -name "ab*" -print0 | sort -z | xargs -0 md5sum | sed 's/^\\\?\([[:xdigit:]]\+\) .*$/\1/' | xxd -r -p | xxd
+find -L . -maxdepth 1 -type f -name "ab*" -print0 | sort -z | xargs -0 md5sum | sed 's/^\\\?\([[:xdigit:]]\+\) .*$/\1/' | xxd -r -p | od --endian=big -t x -v
+
+-----------------------------------------------------------------
 
   echo "Warning: Mind that $hash_text is cryptographically broken and hence dangerous and discouraged." 2>
 
