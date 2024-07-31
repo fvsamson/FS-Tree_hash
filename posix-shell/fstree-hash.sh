@@ -98,23 +98,25 @@ do
       exit 3
     fi
     ;;
-  -r|--version)  # XYZsum style output with "+" for binary mode, "_" for text mode and "u" for "universal mode"
-    ver="${1#-?*=}"
-    if [ "$ver" = "$1" ]
+  -r|--variant)  # Variant 0 concatenates the file-contents of the sorted file paths and then hashes this data stream, 
+                 # variant 1 hashes the file-content of each filepath, then concatenates these hashes in binary form
+                 # (i.e. not as ASCII hex output) according to the sorted order of the file paths and hashes the resulting data stream. .
+    var="${1#-?*=}"
+    if [ "$var" = "$1" ]
     then
-      ver="$2"
+      var="$2"
       shift
     fi
     shift
-    if [ "0$ver" -ne "$ver" ] 2>/dev/null
+    if [ "0$var" -ne "$var" ] 2>/dev/null
     then
-      echo "Error: Version parameter $ver is not a numeric value!"
+      echo "Error: Variant parameter $var is not a numeric value!"
       exit 3
-    elif [ $ver -gt 1 ]
+    elif [ $var -gt 1 ]
     then
-      echo "Error: Version parameter $ver is larger than 1!"
+      echo "Error: Variant parameter $var is larger than 1!"
       exit 3
-    else version=$ver
+    else variant=$var
     fi
     ;;
   -p|--postamble)  # XYZsum style output with "+" for binary mode, "_" for text mode and "u" for "universal mode"
@@ -211,7 +213,7 @@ fi
 
 -----------------------------------------------------------------
 
-*** Version 0 ***
+*** Variant 0 ***
 
 With GNU-Utilities:
 
@@ -254,7 +256,7 @@ echo -e "ab\ncd\nef" | tr '\n' '\0' | sed 's/\x0/\n/g'
 
 -----------------------------------------------------------------
 
-*** Version 1 ***
+*** Variant 1 ***
 
 With GNU-Utilities:
 
