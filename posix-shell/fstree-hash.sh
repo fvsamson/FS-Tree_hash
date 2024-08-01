@@ -98,9 +98,12 @@ do
       exit 3
     fi
     ;;
-  -r|--variant)  # Variant 0 concatenates the file-contents of the sorted file paths and then hashes this data stream, 
-                 # variant 1 hashes the file-content of each filepath, then concatenates these hashes in binary form
-                 # (i.e. not as ASCII hex output) according to the sorted order of the file paths and hashes the resulting data stream. .
+  -r|--variant)  # Variant 0 concatenates the file-contents of the sorted file paths and then hashes this data stream;
+                 # variant 1 hashes the file-content of each file-path, then concatenates these hashes in binary form
+                 # (i.e. not as ASCII hex output) according to the sorted order of the file-paths and hashes the
+                 # resulting data stream;
+                 # this is equivalent to sorting all input file-paths, then hashing them in this order and
+                 # concatenating these hashes in binary form, lastly hashing the resulting data stream.
     var="${1#-?*=}"
     if [ "$var" = "$1" ]
     then
