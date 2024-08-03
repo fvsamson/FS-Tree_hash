@@ -218,9 +218,10 @@ fi
 
 *** Variant 0 ***
 
-With GNU-Utilities:
+With GNU-Utilities, though the second line uses as little GNU options as possible while maintaining NULL-terminated filenames:
 
-export LC_COLLATE=POSIX; find -P . -xtype f -print0 | sort -z | xargs -x -0 cat | sha256sum -b | cut -f 1 -d ' '
+export LC_COLLATE=POSIX; find -P . -maxdepth 1 -name 'ab*' -xtype f -print0 | sort -z | xargs -x -0 cat | sha256sum -b | cut -f 1 -d ' '
+export LC_COLLATE=POSIX; find -L . -maxdepth 1 -name 'ab*' -type f -exec printf '%s\0' '{}' \; | sort -z | xargs -x -E '' -d '\0' cat | sha256sum -b | cut -f 1 -d ' '
 
 find -L . -type f -exec printf '%s\0' '{}' \;
 is the POSIX equivalent to the GNU-find command line
@@ -240,8 +241,9 @@ find -L . -maxdepth 1 -type f -name "ab*" -exec ls -q '{}' \; | sort -u | sed -e
 find -L . -maxdepth 1 -type f -name "ab*" -exec ls -1q '{}' + | sort -u | sed -e 's/[^[:alnum:]+-./?_~]/\\\\&/g' -e "s/[\"$']/\\\\&/g" | xargs -E '' -I {} sh -c "cat {}"  # Works, supposedly faster
 
 The "proper" way I fail to let the formatting characters become interpreted, but exactly that works with the ls based variants above?!?
-find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n l | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/[^[:alnum:]+-./?_~]/\\&/g' -e 's/["$]/\\\\&/g' -e 's/%/%%/g' | xargs -E '' -I {} sh -c "cat \"$(printf {})\""
-find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n l | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/[^[:alnum:]+-./?_~]/\\&/g' -e 's/%/%%/g' | xargs -E '' -I {} cat "$(printf {})"
+find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n l | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/[^[:alnum:]+-./?_~]/\\&/g' -e 's/["$]/\\\\&/g' -e 's/%/%%/g' | xargs -E '' -I {} sh -c "cat \"\$(printf '{}')\""
+find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n l | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/[^[:alnum:]+-./?_~]/\\&/g' -e 's/%/%%/g' | xargs -E '' -I {} cat "$(printf '{}')"
+find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n l | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/[^[:alnum:]+-./?_~]/\\&/g' -e 's/%/%%/g' | xargs -E '' -I {} cat "$(echo -en '{}')"
 (The source of the line concatenation with sed is https://gist.github.com/sv99/6852cc2e2a09bd3a68ed rsp. https://stackoverflow.com/a/1252191 , i.e. the portable variant is:
  sed -e ':a' -e 'N' -e '$!ba' -e 's/\n/…/g'  ;)
 Next, definitely better try.  Note that it should be researched if the term `-e "s/[[:cntrl:]]/''&''/g"` shall better be omitted.
@@ -254,22 +256,24 @@ ls -1q ab* | cat  # !!! Vastly different output than if STDout is a TTY !!!
 
 Rest is tedious work: Let it be, because a better concept is known.
 
-BTW, most sed implemetations do handle NULL characters using this syntax, but it seems to be not covered by POSIX.1-2017:
+BTW, most sed implementations do handle NULL characters using this syntax (and any hex chharacter or pair of hex characters as `\0xXY`), but it seems to be not covered by POSIX.1-2017:
 echo -e "ab\ncd\nef" | tr '\n' '\0' | sed 's/\x0/\n/g'
 
 -----------------------------------------------------------------
 
 *** Variant 1 ***
 
-With GNU-Utilities:
+With GNU-Utilities, though the first line uses as little GNU options as possible while maintaining NULL-terminated filenames:
 
-find -L . -maxdepth 1 -type f -name "ab*" -print0 | sort -z | xargs -0 md5sum | sed 's/^\\\?\([[:xdigit:]]\+\) .*$/\1/' | xxd -r -p | md5sum | cut -s -f 1 -d ' '
-find -L . -maxdepth 1 -type f -name "ab*" -print0 | sort -z | xargs -0 md5sum | sed -r 's/^\\?([[:xdigit:]]+) .*$/\1/' | xxd -r -p | md5sum | cut -s -f 1 -d ' '
+find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sort -z | xargs -0 md5sum | sed -e 's/^\\\?\([[:xdigit:]]\+\) .*$/\1/' -e 's/../\\\\x&/g' | xargs -E '' -I {} echo -en '{}' | md5sum | cut -s -f 1 -d ' '
+find -P . -maxdepth 1 -xtype f -name "ab*" -print0 | sort -z | xargs -0 md5sum | sed -r 's/^\\?([[:xdigit:]]+) .*$/\1/' | xxd -r -p | md5sum | cut -s -f 1 -d ' '
 
 Checks:
 find -L . -maxdepth 1 -type f -name "ab*" -print0 | sort -z | xargs -0 md5sum | sed -r 's/^\\?([[:xdigit:]]+) .*$/\1/'
 find -L . -maxdepth 1 -type f -name "ab*" -print0 | sort -z | xargs -0 md5sum | sed 's/^\\\?\([[:xdigit:]]\+\) .*$/\1/' | xxd -r -p | xxd
-find -L . -maxdepth 1 -type f -name "ab*" -print0 | sort -z | xargs -0 md5sum | sed 's/^\\\?\([[:xdigit:]]\+\) .*$/\1/' | xxd -r -p | od --endian=big -t x -v
+find -L . -maxdepth 1 -type f -name "ab*" -print0 | sort -z | xargs -0 md5sum | sed -e 's/^\\\?\([[:xdigit:]]\+\) .*$/\1/' -e 's/../\\\\x&/g' | xargs -t -x -E '' -I {} echo -en '{}' | od --endian=big -t x -v
+find -L . -maxdepth 1 -type f -name "ab*" -print0 | sort -z | xargs -0 md5sum | sed -e 's/^\\\?\([[:xdigit:]]\+\) .*$/\1/' -e 's/../\\\\x&/g' | tr -d '\n' | xargs -t -x echo -en | xxd  # Single xargs and echo call
+find -L . -maxdepth 1 -type f -name "ab*" -print0 | sort -z | xargs -0 md5sum | sed -e 's/^\\\?\([[:xdigit:]]\+\) .*$/\1/' -e 's/../\\\\x&/g' | tr -d '\n' | xargs -t -x printf | od --endian=big -t x -v
 
 -----------------------------------------------------------------
 
