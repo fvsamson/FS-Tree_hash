@@ -243,7 +243,7 @@ find -L . -maxdepth 1 -type f -name "ab*" -exec ls -1q '{}' + | sort -u | sed -e
 The "proper" way I fail to let the formatting characters become interpreted, but exactly that works with the ls based variants above?!?
 find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n l | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/[^[:alnum:]+-./?_~]/\\&/g' -e 's/["$]/\\\\&/g' -e 's/%/%%/g' | xargs -E '' -I {} sh -c "cat \"\$(printf '{}')\""
 find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n l | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/[^[:alnum:]+-./?_~]/\\&/g' -e 's/%/%%/g' | xargs -E '' -I {} cat "$(printf '{}')"
-find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n l | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/[^[:alnum:]+-./?_~]/\\&/g' -e 's/%/%%/g' | xargs -E '' -I {} cat "$(echo -en '{}')"
+find -L . -maxdepth 1 -type f -name "ab*" -exec printf '%s\0' '{}' \; | sed ':a;N;$!ba;s/\n/\\n/g' | tr '\0' '\n' | sort | sed -n l | sed -e 's/\([^\]\)\\\\n/\1\\n/g' -e 's/\$$//g' -e 's/[^[:alnum:]+-./?_~]/\\&/g' | xargs -E '' -I {} cat "$(echo -en '{}')"
 (The source of the line concatenation with sed is https://gist.github.com/sv99/6852cc2e2a09bd3a68ed rsp. https://stackoverflow.com/a/1252191 , i.e. the portable variant is:
  sed -e ':a' -e 'N' -e '$!ba' -e 's/\n/…/g'  ;)
 Next, definitely better try.  Note that it should be researched if the term `-e "s/[[:cntrl:]]/''&''/g"` shall better be omitted.
