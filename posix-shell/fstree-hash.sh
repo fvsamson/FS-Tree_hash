@@ -12,8 +12,8 @@ openssl_list="openssl md5 -r,openssl sha1 -r,openssl sha224 -r,openssl sha256 -r
 # openssl list --digest-commands  | tr '\n' ' ' | tr -s ' '  # Using a subset from these, i.e. a subset of the common set of these with those:
 # openssl dgst -list | cut -s -d '-' -f 2- | sed 's/ -//g' | tr '\n' ' ' | tr -s ' '
 
-xsum_list="md5sum -b,sha1sum -b,sha224sum -b,sha256sum -b,sha384sum -b,sha512sum -b,no,no,no,no,no,no,no,no,no,no,no"
-# Index:   1         2          3            4            5            6            7  8  9  10 11 12 13 14 15 16 17
+xsum_list="md5sum -b,sha1sum -b,sha224sum -b,sha256sum -b,sha384sum -b,sha512sum -b,no,no,no,no,b2sum -b,no,no,no,no,no,no"
+# Index:   1         2          3            4            5            6            7  8  9  10 11       12 13 14 15 16 17
 
 shasum_list="no,shasum -b -a 1,shasum -b -a 224,shasum -b -a 256,shasum -b -a 384,shasum -b -a 512,shasum -b -a 512224,shasum -b -a 512256,no,no,no,no,no,no,no,no,no"
 # Index:     1  2              3                4                5                6                7                   8                   9  10 11 12 13 14 15 16 17
@@ -64,24 +64,39 @@ input_stdin=no
 # Another idea, using two hex digits at a time (better use 8, or 16 on 64-bit CPUs):
 # https://www.codeproject.com/Tips/470308/XOR-Hex-Strings-in-Linux-Shell-Script
 xor() {
+  if [ ${#1} != ${#2} ]
+  then
+    echo "Error: ...!" >&2
+    exit 1
+  fi
+  #if ! printf '%s' "$1" | grep -qx '[[:xdigit:]]\{32,\}' && printf '%s' "$2" | grep -qx '[[:xdigit:]]\{32,\}'
+  #then
+  #  echo "Error: ...!" >&2
+  #  exit 2
+  #fi
+  w_size=8  # CPU word size in hex chars (each encoding 4 bits)
+  unname_m="$(uname -m)"
+  if [ "${uname_m##*64}" != "$uname_m" ]
+  then w_size=16
+  elif [ "${uname_m##*128}" != "$uname_m" ]
+  then w_size=32
+  fi
   {
     echo "$1" |  # start pipeline with first parameter
-      fold -w 8 |  # Use 8 hex chars (each encoding 4 bits) per line = 32 bits; may use 16 solely on 64-bit CPUs
-      sed 's/^/0x/' |  # prepend '0x' to lines to tell shell they are hex numbers
-      nl -w 2 -d '' # number the lines to match corresponding ones later; 2 allows for 99*32=3168-bit hashes, default is 6
+      fold -w $w_size |  # Use $w_size hex chars (each encoding 4 bits) per line
+      nl -d ''  # number the lines to match corresponding ones later, `pr -tn` is a POSIX alternative
     echo "$2" |  # do the same with the second argument
-      fold -w 8 |
-      sed 's/^/0x/' |
-      nl -w 2 -d ''  # BTW, `cat -n` is equivalent to `nl -d ''` with its other options at default values
+      fold -w $w_size |
+      nl -d ''  # `cat -n` is equivalent to `nl -d ''` (with its other options at default values), but not POSIX
   } |  # coming into this pipe the lines are: 1,..,n,1,..,n
   sort -n |  # sort numerically so lines are: 1,1,..,n,n
-  cut -s -f 2 |  # cut to keep only second field (i.e. hex blocks), ditching the line numbers
+  sed 's/^ *[[:digit:]][[:digit:]]*\t/0x/' |  # ditch line number and tab, replace by 0x to tell shell these are hex numbers
   paste - - |  # paste to join every second line separated by a tab (creating half as many two-field lines)
   while read -r a b  # read lines, assign 'a' and 'b' to the two fields
   do
     printf "%#0${#a}x" "$(( a ^ b ))"  # do XOR and left-pad the result
   done |
-  sed 's/0x//g' |  # strip the leading '0x' (outside the loop for "performance")
+  sed 's/^0x//g' |  # strip the leading '0x' (outside the loop for "performance")
   paste -s -d '\0' -  # join all block back into to one hex string; '\0' does *not* denote the NULL char
 }
 
@@ -235,9 +250,9 @@ find -P . -xtype f -print0
               tion is needed when searching filesystems that do not follow the Unix directory-link convention, such as CD-ROM or
               MS-DOS filesystems  (GNU find)
 
-find -L . -maxdepth 1 -type f -name "ab*" -exec shasum -b '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}'
-find -L . -maxdepth 1 -type f -name "ab*" -exec shasum -a 256 -b '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}'
 find -L . -maxdepth 1 -type f -name "ab*" -exec openssl sha256 -r '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}'
+find -L . -maxdepth 1 -type f -name "ab*" -exec sha256sum -b '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}'
+find -L . -maxdepth 1 -type f -name "ab*" -exec shasum -a 256 -b '{}' + | cut -f 1 -d ' ' | grep -o '[[:xdigit:]]\{32,\}'
 
 
   echo "Warning: Mind that $hash_text is cryptographically broken and hence dangerous and discouraged." 2>
